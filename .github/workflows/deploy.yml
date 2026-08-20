@@ -1,43 +1,42 @@
-name: Deploy School Web App
+name: Deploy to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
-    name: Deploy to EC2
     runs-on: ubuntu-latest
     environment: secrets
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Copy Project to EC2
+      - name: Copy Project
         run: |
           rsync -az --delete \
             -e "ssh -i ~/.ssh/ec2_key" \
             ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/SchoolWebApp/
 
-      - name: Build and Start Containers
+      - name: Create .env and Deploy
         run: |
-          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-            set -e
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
             cd ~/SchoolWebApp
+
+            cat > .env << EOL
+            DB_HOST=13.233.235.64
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            SECRET_KEY=${{ secrets.SECRET_KEY }}
+            ALGORITHM=${{ secrets.ALGORITHM }}
+            EOL
 
             docker compose down
             docker compose up -d --build
-
-            docker image prune -f
-
-            docker ps
           EOF
