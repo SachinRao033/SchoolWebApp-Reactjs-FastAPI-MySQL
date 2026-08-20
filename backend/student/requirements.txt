@@ -9,4 +9,4 @@ python-multipart
 sqlalchemy
 starlette
 mysql-connector
-decouple
+python-decouple

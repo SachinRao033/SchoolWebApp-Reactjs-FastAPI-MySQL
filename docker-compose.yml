@@ -1,0 +1,98 @@
+services:
+
+  # ============================================================
+  # STUDENT BACKEND
+  # ============================================================
+  student:
+    build:
+      context: ./backend/student
+      dockerfile: Dockerfile
+    container_name: school-student
+    restart: unless-stopped
+
+    ports:
+      - "8000:8000"
+
+    env_file:
+      - .env
+
+    environment:
+      #DATABASE_URL: "mysql+pymysql://root:mysql%40123@13.233.235.64:3306/studentfdb"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: 13.233.235.64
+      DB_PORT: "3306"
+      DB_NAME: studentfdb
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  # ============================================================
+  # ADMIN BACKEND
+  # ============================================================
+  admin:
+    build:
+      context: ./backend/admin
+      dockerfile: Dockerfile
+    container_name: school-admin
+    restart: unless-stopped
+
+    ports:
+      - "8001:8001"
+
+    env_file:
+      - .env
+
+    environment:
+     #DATABASE_URL: "mysql+pymysql://root:mysql%40123@13.233.235.64:3306/adminfdb"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: 13.233.235.64
+      DB_PORT: "3306"
+      DB_NAME: adminfdb
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  # ============================================================
+  # TEACHER BACKEND
+  # ============================================================
+  teacher:
+    build:
+      context: ./backend/teacher
+      dockerfile: Dockerfile
+    container_name: school-teacher
+    restart: unless-stopped
+
+    ports:
+      - "8002:8002"
+
+    env_file:
+      - .env
+
+    environment:
+      #DATABASE_URL: "mysql+pymysql://root:mysql%40123@13.233.235.64:3306/teacherfdb"      
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: 13.233.235.64
+      DB_PORT: "3306"
+      DB_NAME: teacherfdb
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+
+  # ============================================================
+  # FRONTEND
+  # ============================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: school-frontend
+    restart: unless-stopped
+
+    ports:
+      - "3000:80"
