@@ -1,42 +1,102 @@
-name: Deploy to EC2
+name: Deploy School-Web-App to EC2
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
     environment: secrets
 
     steps:
-      - uses: actions/checkout@v4
 
+      # ----------------------------------------------------------
+      # 1. Checkout source code
+      # ----------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      # ----------------------------------------------------------
+      # 2. Configure SSH
+      # ----------------------------------------------------------
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
+
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
+
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Copy Project
-        run: |
-          rsync -az --delete \
-            -e "ssh -i ~/.ssh/ec2_key" \
-            ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/SchoolWebApp/
 
-      - name: Create .env and Deploy
+      # ----------------------------------------------------------
+      # 3. Copy project to EC2
+      # ----------------------------------------------------------
+      - name: Copy project to EC2
         run: |
-          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          rsync -az \
+            --delete \
+            --exclude='.env' \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='__pycache__/' \
+            --exclude='*.pyc' \
+            -e "ssh -i ~/.ssh/ec2_key" \
+            ./ \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/SchoolWebApp/
+
+
+      # ----------------------------------------------------------
+      # 4. Deploy Docker containers
+      # ----------------------------------------------------------
+      - name: Deploy application
+        run: |
+          ssh -i ~/.ssh/ec2_key \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+
+            set -e
+
             cd ~/SchoolWebApp
 
-            cat > .env << EOL
-            DB_HOST=13.233.235.64
-            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            SECRET_KEY=${{ secrets.SECRET_KEY }}
-            ALGORITHM=${{ secrets.ALGORITHM }}
-            EOL
+            echo "======================================"
+            echo "Starting deployment..."
+            echo "======================================"
 
+            echo "Checking Docker..."
+            docker --version
+            docker compose version
+
+            echo "Checking .env..."
+            if [ ! -f .env ]; then
+              echo "ERROR: .env file does not exist!"
+              exit 1
+            fi
+
+            echo ".env file found."
+
+            echo "Stopping old containers..."
             docker compose down
+
+            echo "Building and starting containers..."
             docker compose up -d --build
+
+            echo "Waiting for containers..."
+            sleep 10
+
+            echo "======================================"
+            echo "Container status"
+            echo "======================================"
+
+            docker compose ps
+
+            echo "======================================"
+            echo "Deployment completed"
+            echo "======================================"
+
           EOF
+
+
