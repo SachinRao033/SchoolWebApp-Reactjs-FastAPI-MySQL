@@ -1,0 +1,42 @@
+name: Deploy School Web App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+          chmod 600 ~/.ssh/ec2_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy Project to EC2
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/ec2_key" \
+            ./ ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/SchoolWebApp/
+
+      - name: Build and Start Containers
+        run: |
+          ssh -i ~/.ssh/ec2_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            cd ~/SchoolWebApp
+
+            docker compose down
+            docker compose up -d --build
+
+            docker image prune -f
+
+            docker ps
+          EOF
